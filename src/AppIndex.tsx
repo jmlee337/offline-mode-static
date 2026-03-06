@@ -1,30 +1,49 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect, useState } from "react";
+import { type Status, type Tournament } from "./types";
 
 function AppIndex() {
-  const [count, setCount] = useState(0);
+  const [status, setStatus] = useState<Status>("closed");
+  const [error, setError] = useState("");
+  const [tournament, setTournament] = useState<Tournament>();
+  useEffect(() => {
+    const webSocket = new WebSocket(
+      `ws://${location.hostname}`,
+      "bracket-protocol"
+    );
+    webSocket.onopen = () => {
+      setStatus("open");
+      webSocket.send(
+        JSON.stringify({
+          op: "client-id-request",
+          num: 1,
+          computerName: "",
+          clientName: "Offline Mode",
+        })
+      );
+    };
+    webSocket.onerror = (ev) => {
+      setStatus("error");
+      setError(JSON.stringify(ev));
+    };
+    webSocket.onclose = () => {
+      setStatus("closed");
+    };
+    webSocket.onmessage = (ev) => {
+      try {
+        const message = JSON.parse(ev.data);
+        if (message.op === "tournament-update-event" && message.tournament) {
+          setTournament(message.tournament);
+        }
+      } catch {
+        // just catch
+      }
+    };
+    return () => {
+      webSocket.close();
+    };
+  }, []);
 
-  return (
-    <>
-      <div>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  );
+  return <div>{tournament && JSON.stringify(tournament)}</div>;
 }
 
 export default AppIndex;
