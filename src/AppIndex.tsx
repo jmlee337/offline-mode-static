@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { type Status, type Tournament } from "./types";
+import { type Tournament } from "./types";
+import { AppBar, IconButton, Stack, Toolbar, Typography } from "@mui/material";
+import { LeakAdd, LeakRemove } from "@mui/icons-material";
 
 function AppIndex() {
-  const [status, setStatus] = useState<Status>("closed");
-  const [error, setError] = useState("");
+  const [webSocketOpen, setWebSocketOpen] = useState(false);
+  const [webSocketError, setWebSocketError] = useState(false);
   const [tournament, setTournament] = useState<Tournament>();
   useEffect(() => {
     const webSocket = new WebSocket(
@@ -11,7 +13,8 @@ function AppIndex() {
       "bracket-protocol"
     );
     webSocket.onopen = () => {
-      setStatus("open");
+      setWebSocketOpen(true);
+      setWebSocketError(false);
       webSocket.send(
         JSON.stringify({
           op: "client-id-request",
@@ -21,12 +24,11 @@ function AppIndex() {
         })
       );
     };
-    webSocket.onerror = (ev) => {
-      setStatus("error");
-      setError(JSON.stringify(ev));
+    webSocket.onerror = () => {
+      setWebSocketError(true);
     };
     webSocket.onclose = () => {
-      setStatus("closed");
+      setWebSocketOpen(false);
     };
     webSocket.onmessage = (ev) => {
       try {
@@ -43,7 +45,38 @@ function AppIndex() {
     };
   }, []);
 
-  return <div>{tournament && JSON.stringify(tournament)}</div>;
+  return (
+    <>
+      <AppBar
+        position="fixed"
+        sx={{
+          backgroundColor: (theme) => theme.palette.common.white,
+          color: (theme) => theme.palette.text.primary,
+        }}
+      >
+        <Toolbar disableGutters>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            paddingLeft="8px"
+            width="100%"
+          >
+            <Typography variant="body1">
+              {tournament ? tournament.name : "Offline Mode"}
+            </Typography>
+            <IconButton
+              color={webSocketError ? "error" : "primary"}
+              onClick={() => {}}
+            >
+              {webSocketOpen ? <LeakAdd /> : <LeakRemove />}
+            </IconButton>
+          </Stack>
+        </Toolbar>
+      </AppBar>
+      <Stack marginTop="64px"></Stack>
+    </>
+  );
 }
 
 export default AppIndex;

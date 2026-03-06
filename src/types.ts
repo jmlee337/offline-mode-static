@@ -124,5 +124,3 @@ export type Tournament = {
   stations: Station[];
   streams: Stream[];
 };
-
-export type Status = "closed" | "error" | "open";
