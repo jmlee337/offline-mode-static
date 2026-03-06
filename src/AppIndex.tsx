@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { type Tournament } from "./types";
 import { AppBar, IconButton, Stack, Toolbar, Typography } from "@mui/material";
 import { LeakAdd, LeakRemove } from "@mui/icons-material";
+import TournamentEl from "./Tournament";
 
 function AppIndex() {
   const [webSocketOpen, setWebSocketOpen] = useState(false);
@@ -74,7 +75,9 @@ function AppIndex() {
           </Stack>
         </Toolbar>
       </AppBar>
-      <Stack marginTop="64px"></Stack>
+      <Stack marginTop="56px" marginBottom="8px">
+        {tournament && <TournamentEl tournament={tournament} />}
+      </Stack>
     </>
   );
 }
