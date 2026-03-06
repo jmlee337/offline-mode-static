@@ -4,4 +4,65 @@
 
 body {
   margin: 0;
+  --set-columns: 1;
+}
+
+@media (min-width: 336px) {
+  body {
+    --set-columns: 2;
+  }
+}
+
+@media (min-width: 500px) {
+  body {
+    --set-columns: 3;
+  }
+}
+
+@media (min-width: 664px) {
+  body {
+    --set-columns: 4;
+  }
+}
+
+@media (min-width: 828px) {
+  body {
+    --set-columns: 5;
+  }
+}
+
+@media (min-width: 992px) {
+  body {
+    --set-columns: 6;
+  }
+}
+
+@media (min-width: 1156px) {
+  body {
+    --set-columns: 7;
+  }
+}
+
+@media (min-width: 1320px) {
+  body {
+    --set-columns: 8;
+  }
+}
+
+@media (min-width: 1484px) {
+  body {
+    --set-columns: 9;
+  }
+}
+
+@media (min-width: 1648px) {
+  body {
+    --set-columns: 10;
+  }
+}
+
+@media (min-width: 1812px) {
+  body {
+    --set-columns: 11;
+  }
 }

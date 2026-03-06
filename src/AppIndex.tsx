@@ -55,15 +55,21 @@ function AppIndex() {
           color: (theme) => theme.palette.text.primary,
         }}
       >
-        <Toolbar disableGutters>
+        <Toolbar disableGutters style={{ minHeight: "56px" }}>
           <Stack
             direction="row"
             alignItems="center"
+            boxSizing="border-box"
             justifyContent="space-between"
             paddingLeft="8px"
             width="100%"
           >
-            <Typography variant="body1">
+            <Typography
+              overflow="hidden"
+              textOverflow="ellipsis"
+              variant="subtitle2"
+              whiteSpace="nowrap"
+            >
               {tournament ? tournament.name : "Offline Mode"}
             </Typography>
             <IconButton
