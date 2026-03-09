@@ -684,13 +684,11 @@ function SelectedSetDialog({
               </Stack>
             </DialogTitle>
             <DialogContent style={{ paddingTop: 0 }}>
-              <Stack
-                gap="8px"
-                sx={{ typography: (theme) => theme.typography.body2 }}
-              >
+              <Stack gap="8px">
                 <Box
                   overflow="hidden"
                   textOverflow="ellipsis"
+                  typography="body2"
                   whiteSpace="nowrap"
                 >
                   {getEntrantName(selectedSet.entrant1Participants) ||
@@ -841,6 +839,7 @@ function SelectedSetDialog({
                 <Box
                   overflow="hidden"
                   textOverflow="ellipsis"
+                  typography="body2"
                   whiteSpace="nowrap"
                 >
                   {getEntrantName(selectedSet.entrant2Participants) ||
