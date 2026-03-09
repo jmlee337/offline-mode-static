@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { type Tournament } from "./types";
+import { type Set, type Tournament } from "./types";
 import { AppBar, IconButton, Stack, Toolbar, Typography } from "@mui/material";
 import { LeakAdd, LeakRemove } from "@mui/icons-material";
 import TournamentEl from "./Tournament";
@@ -8,6 +8,8 @@ function AppIndex() {
   const [webSocketOpen, setWebSocketOpen] = useState(false);
   const [webSocketError, setWebSocketError] = useState(false);
   const [tournament, setTournament] = useState<Tournament>();
+  const [idToSet, setIdToSet] = useState<Map<number, Set>>();
+
   useEffect(() => {
     const webSocket = new WebSocket(
       `ws://${location.hostname}`,
@@ -35,7 +37,19 @@ function AppIndex() {
       try {
         const message = JSON.parse(ev.data);
         if (message.op === "tournament-update-event" && message.tournament) {
-          setTournament(message.tournament);
+          const newTournament = message.tournament as Tournament;
+          const newIdToSet = new Map<number, Set>();
+          newTournament.events.forEach((event) => {
+            event.phases.forEach((phase) => {
+              phase.pools.forEach((pool) => {
+                pool.sets.forEach((set) => {
+                  newIdToSet.set(set.id, set);
+                });
+              });
+            });
+          });
+          setTournament(newTournament);
+          setIdToSet(newIdToSet);
         }
       } catch {
         // just catch
@@ -82,7 +96,9 @@ function AppIndex() {
         </Toolbar>
       </AppBar>
       <Stack marginTop="56px" marginBottom="8px">
-        {tournament && <TournamentEl tournament={tournament} />}
+        {tournament && idToSet && (
+          <TournamentEl tournament={tournament} idToSet={idToSet} />
+        )}
       </Stack>
     </>
   );

@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import { type Tournament } from "./types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReportGame,
+  type Request,
+  type Set,
+  type Tournament,
+} from "./types";
 import {
   Alert,
   AppBar,
@@ -24,11 +29,15 @@ function getPassword() {
 }
 
 function AppAdmin() {
-  const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
+  const [webSocketConnected, setWebSocketConnected] = useState(false);
   const [webSocketError, setWebSocketError] = useState(false);
   const [webSocketUnauth, setWebSocketUnauth] = useState(false);
   const [connecting, setConnecting] = useState(Boolean(getPassword()));
   const [tournament, setTournament] = useState<Tournament>();
+  const [idToSet, setIdToSet] = useState<Map<number, Set>>();
+
+  const nextNumRef = useRef(1);
+  const webSocketRef = useRef<WebSocket | null>(null);
 
   const startWebSocket = useCallback((password: string) => {
     const newWebSocket = new WebSocket(
@@ -39,7 +48,8 @@ function AppAdmin() {
       setWebSocketError(true);
     };
     newWebSocket.onclose = (ev) => {
-      setWebSocket(null);
+      webSocketRef.current = null;
+      setWebSocketConnected(false);
       setConnecting(false);
       if (ev.code === UNAUTH_CODE) {
         setWebSocketError(true);
@@ -49,7 +59,6 @@ function AppAdmin() {
     newWebSocket.onmessage = async (ev) => {
       try {
         const message = JSON.parse(ev.data);
-
         if (message.op === "auth-hello") {
           if (
             typeof message.challenge === "string" &&
@@ -77,15 +86,18 @@ function AppAdmin() {
             );
           }
         } else if (message.op === "auth-success-event") {
+          const num = nextNumRef.current;
+          nextNumRef.current = num + 1;
           newWebSocket.send(
             JSON.stringify({
               op: "client-id-request",
-              num: 1,
+              num,
               computerName: "",
               clientName: "Offline Mode Admin",
             })
           );
-          setWebSocket(newWebSocket);
+          webSocketRef.current = newWebSocket;
+          setWebSocketConnected(true);
           setWebSocketError(false);
           setWebSocketUnauth(false);
           setConnecting(false);
@@ -93,7 +105,19 @@ function AppAdmin() {
           message.op === "tournament-update-event" &&
           message.tournament
         ) {
-          setTournament(message.tournament);
+          const newTournament = message.tournament as Tournament;
+          const newIdToSet = new Map<number, Set>();
+          newTournament.events.forEach((event) => {
+            event.phases.forEach((phase) => {
+              phase.pools.forEach((pool) => {
+                pool.sets.forEach((set) => {
+                  newIdToSet.set(set.id, set);
+                });
+              });
+            });
+          });
+          setTournament(newTournament);
+          setIdToSet(newIdToSet);
         }
       } catch {
         // just catch
@@ -114,6 +138,130 @@ function AppAdmin() {
     }
     return () => {};
   }, [startWebSocket]);
+
+  const doRequest = useCallback((request: Request, responseOp: string) => {
+    return new Promise<void>((resolve, reject) => {
+      if (webSocketRef.current === null) {
+        reject(new Error("not connected"));
+        return;
+      }
+
+      const listener = (ev: MessageEvent) => {
+        try {
+          const message = JSON.parse(ev.data);
+          if (message.num === request.num && message.op === responseOp) {
+            webSocketRef.current?.removeEventListener("message", listener);
+            if (message.err) {
+              reject(new Error(message.err));
+            } else if (!message.data) {
+              reject(new Error("no data"));
+            } else {
+              resolve();
+            }
+          }
+        } catch (e: unknown) {
+          reject(e);
+          return;
+        }
+      };
+      webSocketRef.current.addEventListener("message", listener);
+      webSocketRef.current.send(JSON.stringify(request));
+    });
+  }, []);
+
+  const resetSet = useCallback(
+    async (id: number) => {
+      const num = nextNumRef.current;
+      nextNumRef.current = num + 1;
+      const resetSetRequest: Request = {
+        num,
+        op: "reset-set-request",
+        id,
+      };
+      await doRequest(resetSetRequest, "reset-set-response");
+    },
+    [doRequest]
+  );
+
+  const callSet = useCallback(
+    async (id: number) => {
+      const num = nextNumRef.current;
+      nextNumRef.current = num + 1;
+      const callSetRequest: Request = {
+        num,
+        op: "call-set-request",
+        id,
+      };
+      await doRequest(callSetRequest, "call-set-response");
+    },
+    [doRequest]
+  );
+
+  const startSet = useCallback(
+    async (id: number) => {
+      const num = nextNumRef.current;
+      nextNumRef.current = num + 1;
+      const startSetRequest: Request = {
+        num,
+        op: "start-set-request",
+        id,
+      };
+      await doRequest(startSetRequest, "start-set-response");
+    },
+    [doRequest]
+  );
+
+  const assignSetStation = useCallback(
+    async (id: number, stationId: number) => {
+      const num = nextNumRef.current;
+      nextNumRef.current = num + 1;
+      const assignSetStationRequest: Request = {
+        num,
+        op: "assign-set-station-request",
+        id,
+        stationId,
+      };
+      await doRequest(assignSetStationRequest, "assign-set-station-response");
+    },
+    [doRequest]
+  );
+
+  const assignSetStream = useCallback(
+    async (id: number, streamId: number) => {
+      const num = nextNumRef.current;
+      nextNumRef.current = num + 1;
+      const assignSetStreamRequest: Request = {
+        num,
+        op: "assign-set-stream-request",
+        id,
+        streamId,
+      };
+      await doRequest(assignSetStreamRequest, "assign-set-stream-response");
+    },
+    [doRequest]
+  );
+
+  const reportSet = useCallback(
+    async (
+      id: number,
+      winnerId: number,
+      isDQ: boolean,
+      gameData: ReportGame[]
+    ) => {
+      const num = nextNumRef.current;
+      nextNumRef.current = num + 1;
+      const reportSetRequest: Request = {
+        num,
+        op: "report-set-request",
+        id,
+        winnerId,
+        isDQ,
+        gameData,
+      };
+      await doRequest(reportSetRequest, "report-set-response");
+    },
+    [doRequest]
+  );
 
   return (
     <>
@@ -139,21 +287,32 @@ function AppAdmin() {
               variant="subtitle2"
               whiteSpace="nowrap"
             >
-              {tournament ? tournament.name : "Offline Mode"}
+              Admin - {tournament ? tournament.name : "Offline Mode"}
             </Typography>
             <IconButton
               color={webSocketError ? "error" : "primary"}
               onClick={() => {}}
             >
-              {webSocket ? <LeakAdd /> : <LeakRemove />}
+              {webSocketConnected ? <LeakAdd /> : <LeakRemove />}
             </IconButton>
           </Stack>
         </Toolbar>
       </AppBar>
       <Stack marginTop="56px" marginBottom="8px">
-        {tournament && <TournamentEl tournament={tournament} />}
+        {tournament && idToSet && (
+          <TournamentEl
+            tournament={tournament}
+            idToSet={idToSet}
+            resetSet={resetSet}
+            callSet={callSet}
+            startSet={startSet}
+            assignSetStation={assignSetStation}
+            assignSetStream={assignSetStream}
+            reportSet={reportSet}
+          />
+        )}
       </Stack>
-      <Dialog open={!webSocket}>
+      <Dialog open={!webSocketConnected}>
         <form
           onSubmit={(ev) => {
             const target = ev.target as typeof ev.target & {
@@ -188,11 +347,7 @@ function AppAdmin() {
             )}
           </DialogContent>
           <DialogActions>
-            <Button
-              disabled={connecting || Boolean(webSocket)}
-              type="submit"
-              variant="contained"
-            >
+            <Button disabled={connecting} type="submit" variant="contained">
               Connect
             </Button>
           </DialogActions>

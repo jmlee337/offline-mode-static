@@ -124,3 +124,43 @@ export type Tournament = {
   stations: Station[];
   streams: Stream[];
 };
+
+export type ReportGame = {
+  entrant1Score: number;
+  entrant2Score: number;
+  // 1-indexed
+  gameNum: number;
+  selections: never[];
+  winnerId: number;
+};
+
+export type Request = {
+  num: number;
+} & (
+  | {
+      op: "reset-set-request" | "call-set-request" | "start-set-request";
+      id: number;
+    }
+  | {
+      op: "assign-set-station-request";
+      id: number;
+      stationId: number;
+    }
+  | {
+      op: "assign-set-stream-request";
+      id: number;
+      streamId: number;
+    }
+  | {
+      op: "report-set-request";
+      id: number;
+      winnerId: number;
+      isDQ: boolean;
+      gameData: ReportGame[];
+    }
+  | {
+      op: "client-id-request";
+      computerName: string;
+      clientName: string;
+    }
+);
