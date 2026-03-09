@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type ReportGame,
   type Request,
@@ -12,6 +12,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   TextField,
@@ -30,9 +31,16 @@ function getPassword() {
 
 function AppAdmin() {
   const [webSocketConnected, setWebSocketConnected] = useState(false);
-  const [webSocketError, setWebSocketError] = useState(false);
+  const [webSocketFailedToConnect, setWebSocketFailedToConnect] =
+    useState(false);
   const [webSocketUnauth, setWebSocketUnauth] = useState(false);
+  const webSocketError = useMemo(() => {
+    return webSocketFailedToConnect || webSocketUnauth;
+  }, [webSocketFailedToConnect, webSocketUnauth]);
+
+  const [connectOpen, setConnectOpen] = useState(!getPassword());
   const [connecting, setConnecting] = useState(Boolean(getPassword()));
+
   const [tournament, setTournament] = useState<Tournament>();
   const [idToSet, setIdToSet] = useState<Map<number, Set>>();
 
@@ -44,19 +52,27 @@ function AppAdmin() {
       `ws://${location.hostname}`,
       "admin-protocol"
     );
-    newWebSocket.onerror = () => {
-      setWebSocketError(true);
+    const openListener = () => {
+      newWebSocket.removeEventListener("error", errorListener);
+      setWebSocketFailedToConnect(false);
     };
-    newWebSocket.onclose = (ev) => {
+    const errorListener = () => {
+      newWebSocket.removeEventListener("open", openListener);
+      setWebSocketFailedToConnect(true);
+      setConnectOpen(true);
+    };
+    newWebSocket.addEventListener("open", openListener);
+    newWebSocket.addEventListener("error", errorListener);
+    newWebSocket.addEventListener("close", (ev) => {
       webSocketRef.current = null;
       setWebSocketConnected(false);
       setConnecting(false);
       if (ev.code === UNAUTH_CODE) {
-        setWebSocketError(true);
         setWebSocketUnauth(true);
+        setConnectOpen(true);
       }
-    };
-    newWebSocket.onmessage = async (ev) => {
+    });
+    newWebSocket.addEventListener("message", async (ev) => {
       try {
         const message = JSON.parse(ev.data);
         if (message.op === "auth-hello") {
@@ -98,9 +114,9 @@ function AppAdmin() {
           );
           webSocketRef.current = newWebSocket;
           setWebSocketConnected(true);
-          setWebSocketError(false);
           setWebSocketUnauth(false);
           setConnecting(false);
+          setConnectOpen(false);
         } else if (
           message.op === "tournament-update-event" &&
           message.tournament
@@ -122,7 +138,7 @@ function AppAdmin() {
       } catch {
         // just catch
       }
-    };
+    });
     return newWebSocket;
   }, []);
 
@@ -290,8 +306,10 @@ function AppAdmin() {
               Admin - {tournament ? tournament.name : "Offline Mode"}
             </Typography>
             <IconButton
-              color={webSocketError ? "error" : "primary"}
-              onClick={() => {}}
+              color={webSocketConnected ? "primary" : "error"}
+              onClick={() => {
+                setConnectOpen(true);
+              }}
             >
               {webSocketConnected ? <LeakAdd /> : <LeakRemove />}
             </IconButton>
@@ -303,16 +321,28 @@ function AppAdmin() {
           <TournamentEl
             tournament={tournament}
             idToSet={idToSet}
-            resetSet={resetSet}
-            callSet={callSet}
-            startSet={startSet}
-            assignSetStation={assignSetStation}
-            assignSetStream={assignSetStream}
-            reportSet={reportSet}
+            resetSet={webSocketConnected ? resetSet : undefined}
+            callSet={webSocketConnected ? callSet : undefined}
+            startSet={webSocketConnected ? startSet : undefined}
+            assignSetStation={webSocketConnected ? assignSetStation : undefined}
+            assignSetStream={webSocketConnected ? assignSetStream : undefined}
+            reportSet={webSocketConnected ? reportSet : undefined}
           />
         )}
       </Stack>
-      <Dialog open={!webSocketConnected}>
+      <Dialog
+        open={connectOpen}
+        onClose={() => {
+          setConnectOpen(false);
+        }}
+      >
+        <DialogTitle>
+          {webSocketError
+            ? "Error!"
+            : webSocketConnected
+            ? "Connected"
+            : "Disconnected"}
+        </DialogTitle>
         <form
           onSubmit={(ev) => {
             const target = ev.target as typeof ev.target & {
@@ -324,15 +354,15 @@ function AppAdmin() {
             if (password) {
               sessionStorage?.setItem(PASSWORD_KEY, password);
               setConnecting(true);
-              setWebSocketError(false);
               setWebSocketUnauth(false);
               startWebSocket(password);
             }
           }}
         >
-          <DialogContent>
+          <DialogContent style={{ paddingTop: "8px" }}>
             <TextField
               defaultValue={getPassword()}
+              disabled={connecting || webSocketConnected}
               label="Password"
               name="password"
               required
@@ -340,14 +370,19 @@ function AppAdmin() {
               type="password"
               variant="outlined"
             />
-            {webSocketUnauth && (
+            {webSocketError && (
               <Alert severity="error" style={{ marginTop: "8px" }}>
-                Incorrect Password
+                {webSocketFailedToConnect && "Couldn't Connect"}
+                {webSocketUnauth && "Incorrect Password"}
               </Alert>
             )}
           </DialogContent>
           <DialogActions>
-            <Button disabled={connecting} type="submit" variant="contained">
+            <Button
+              disabled={connecting || webSocketConnected}
+              type="submit"
+              variant="contained"
+            >
               Connect
             </Button>
           </DialogActions>

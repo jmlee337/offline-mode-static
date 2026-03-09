@@ -1,23 +1,39 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type Set, type Tournament } from "./types";
-import { AppBar, IconButton, Stack, Toolbar, Typography } from "@mui/material";
+import {
+  Alert,
+  AppBar,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 import { LeakAdd, LeakRemove } from "@mui/icons-material";
 import TournamentEl from "./Tournament";
 
 function AppIndex() {
   const [webSocketOpen, setWebSocketOpen] = useState(false);
-  const [webSocketError, setWebSocketError] = useState(false);
+  const [webSocketFailedToConnect, setWebSocketFailedToConnect] =
+    useState(false);
+
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [connecting, setConnecting] = useState(Boolean(true));
+
   const [tournament, setTournament] = useState<Tournament>();
   const [idToSet, setIdToSet] = useState<Map<number, Set>>();
 
-  useEffect(() => {
+  const startWebSocket = useCallback(() => {
     const webSocket = new WebSocket(
       `ws://${location.hostname}`,
       "bracket-protocol"
     );
-    webSocket.onopen = () => {
-      setWebSocketOpen(true);
-      setWebSocketError(false);
+    const openListener = () => {
+      webSocket.removeEventListener("error", errorListener);
       webSocket.send(
         JSON.stringify({
           op: "client-id-request",
@@ -26,14 +42,23 @@ function AppIndex() {
           clientName: "Offline Mode",
         })
       );
+      setWebSocketOpen(true);
+      setWebSocketFailedToConnect(false);
+      setConnecting(false);
+      setConnectOpen(false);
     };
-    webSocket.onerror = () => {
-      setWebSocketError(true);
+    const errorListener = () => {
+      webSocket.removeEventListener("open", openListener);
+      setWebSocketFailedToConnect(true);
+      setConnectOpen(true);
     };
-    webSocket.onclose = () => {
+    webSocket.addEventListener("open", openListener);
+    webSocket.addEventListener("error", errorListener);
+    webSocket.addEventListener("close", () => {
+      setConnecting(false);
       setWebSocketOpen(false);
-    };
-    webSocket.onmessage = (ev) => {
+    });
+    webSocket.addEventListener("message", (ev) => {
       try {
         const message = JSON.parse(ev.data);
         if (message.op === "tournament-update-event" && message.tournament) {
@@ -54,11 +79,16 @@ function AppIndex() {
       } catch {
         // just catch
       }
-    };
+    });
+    return webSocket;
+  }, []);
+
+  useEffect(() => {
+    const webSocket = startWebSocket();
     return () => {
       webSocket.close();
     };
-  }, []);
+  }, [startWebSocket]);
 
   return (
     <>
@@ -87,8 +117,10 @@ function AppIndex() {
               {tournament ? tournament.name : "Offline Mode"}
             </Typography>
             <IconButton
-              color={webSocketError ? "error" : "primary"}
-              onClick={() => {}}
+              color={webSocketOpen ? "primary" : "error"}
+              onClick={() => {
+                setConnectOpen(true);
+              }}
             >
               {webSocketOpen ? <LeakAdd /> : <LeakRemove />}
             </IconButton>
@@ -100,6 +132,37 @@ function AppIndex() {
           <TournamentEl tournament={tournament} idToSet={idToSet} />
         )}
       </Stack>
+      <Dialog
+        open={connectOpen}
+        onClose={() => {
+          setConnectOpen(false);
+        }}
+      >
+        <DialogTitle>
+          {webSocketFailedToConnect
+            ? "Error!"
+            : webSocketOpen
+            ? "Connected"
+            : "Disconnected"}
+        </DialogTitle>
+        <DialogContent style={{ paddingTop: 0 }}>
+          {webSocketFailedToConnect && (
+            <Alert severity="error">Couldn't Connect</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={connecting || webSocketOpen}
+            onClick={() => {
+              setConnecting(true);
+              startWebSocket();
+            }}
+            variant="contained"
+          >
+            Connect
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
