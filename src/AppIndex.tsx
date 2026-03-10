@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Set, type Tournament } from "./types";
 import {
   Alert,
@@ -27,6 +27,9 @@ function AppIndex() {
   const [tournament, setTournament] = useState<Tournament>();
   const [idToSet, setIdToSet] = useState<Map<number, Set>>();
 
+  const webSocketOpenRef = useRef(false);
+  const webSocketConnectingRef = useRef(true);
+
   const startWebSocket = useCallback(() => {
     const webSocket = new WebSocket(
       `ws://${location.hostname}`,
@@ -42,6 +45,8 @@ function AppIndex() {
           clientName: "Offline Mode",
         })
       );
+      webSocketOpenRef.current = true;
+      webSocketConnectingRef.current = false;
       setWebSocketOpen(true);
       setWebSocketFailedToConnect(false);
       setConnecting(false);
@@ -55,6 +60,8 @@ function AppIndex() {
     webSocket.addEventListener("open", openListener);
     webSocket.addEventListener("error", errorListener);
     webSocket.addEventListener("close", () => {
+      webSocketOpenRef.current = false;
+      webSocketConnectingRef.current = false;
       setConnecting(false);
       setWebSocketOpen(false);
     });
@@ -87,6 +94,18 @@ function AppIndex() {
     const webSocket = startWebSocket();
     return () => {
       webSocket.close();
+    };
+  }, [startWebSocket]);
+
+  useEffect(() => {
+    document.onvisibilitychange = () => {
+      if (
+        document.visibilityState === "visible" &&
+        !webSocketOpenRef.current &&
+        !webSocketConnectingRef.current
+      ) {
+        startWebSocket();
+      }
     };
   }, [startWebSocket]);
 
@@ -154,6 +173,7 @@ function AppIndex() {
           <Button
             disabled={connecting || webSocketOpen}
             onClick={() => {
+              webSocketConnectingRef.current = true;
               setConnecting(true);
               startWebSocket();
             }}

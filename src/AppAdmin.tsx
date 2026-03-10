@@ -46,6 +46,8 @@ function AppAdmin() {
 
   const nextNumRef = useRef(1);
   const webSocketRef = useRef<WebSocket | null>(null);
+  const webSocketConnectedRef = useRef(false);
+  const webSocketConnectingRef = useRef(Boolean(getPassword()));
 
   const startWebSocket = useCallback((password: string) => {
     const newWebSocket = new WebSocket(
@@ -65,6 +67,8 @@ function AppAdmin() {
     newWebSocket.addEventListener("error", errorListener);
     newWebSocket.addEventListener("close", (ev) => {
       webSocketRef.current = null;
+      webSocketConnectedRef.current = false;
+      webSocketConnectingRef.current = false;
       setWebSocketConnected(false);
       setConnecting(false);
       if (ev.code === UNAUTH_CODE) {
@@ -113,6 +117,8 @@ function AppAdmin() {
             })
           );
           webSocketRef.current = newWebSocket;
+          webSocketConnectedRef.current = true;
+          webSocketConnectingRef.current = false;
           setWebSocketConnected(true);
           setWebSocketUnauth(false);
           setConnecting(false);
@@ -143,16 +149,31 @@ function AppAdmin() {
   }, []);
 
   useEffect(() => {
-    if (sessionStorage) {
-      const password = sessionStorage.getItem(PASSWORD_KEY);
-      if (password) {
-        const newWebSocket = startWebSocket(password);
-        return () => {
-          newWebSocket.close();
-        };
-      }
+    const password = sessionStorage?.getItem(PASSWORD_KEY);
+    if (password) {
+      const newWebSocket = startWebSocket(password);
+      return () => {
+        newWebSocket.close();
+      };
     }
     return () => {};
+  }, [startWebSocket]);
+
+  useEffect(() => {
+    document.onvisibilitychange = () => {
+      if (
+        document.visibilityState === "visible" &&
+        !webSocketConnectedRef.current &&
+        !webSocketConnectingRef.current
+      ) {
+        const password = sessionStorage?.getItem(PASSWORD_KEY);
+        if (password) {
+          webSocketConnectingRef.current = true;
+          setConnecting(true);
+          startWebSocket(password);
+        }
+      }
+    };
   }, [startWebSocket]);
 
   const doRequest = useCallback((request: Request, responseOp: string) => {
@@ -353,6 +374,7 @@ function AppAdmin() {
             ev.stopPropagation();
             if (password) {
               sessionStorage?.setItem(PASSWORD_KEY, password);
+              webSocketConnectingRef.current = true;
               setConnecting(true);
               setWebSocketUnauth(false);
               startWebSocket(password);
