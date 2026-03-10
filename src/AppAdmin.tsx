@@ -113,7 +113,7 @@ function AppAdmin() {
               op: "client-id-request",
               num,
               computerName: "",
-              clientName: "Offline Mode Admin",
+              clientName: "Offline Mode",
             })
           );
           webSocketRef.current = newWebSocket;
