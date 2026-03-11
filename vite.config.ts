@@ -12,6 +12,7 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, "index.html"),
         admin: resolve(__dirname, "admin/index.html"),
+        reporter: resolve(__dirname, "reporter/index.html"),
       },
     },
   },
