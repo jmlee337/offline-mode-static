@@ -46,7 +46,7 @@ function AppReporter() {
   }, [webSocketFailedToConnect, webSocketUnauth]);
 
   const [connectOpen, setConnectOpen] = useState(!getPassword());
-  const [connecting, setConnecting] = useState(Boolean(getPassword()));
+  const [connecting, setConnecting] = useState(false);
 
   const [tournament, setTournament] = useState<Tournament>();
   const [idToSet, setIdToSet] = useState<Map<number, Set>>();
@@ -54,7 +54,7 @@ function AppReporter() {
   const nextNumRef = useRef(1);
   const webSocketRef = useRef<WebSocket | null>(null);
   const webSocketConnectedRef = useRef(false);
-  const webSocketConnectingRef = useRef(Boolean(getPassword()));
+  const webSocketConnectingRef = useRef(false);
   const timeoutRef = useRef<number>(undefined);
 
   const startWebSocket = useCallback((password: string) => {
@@ -62,6 +62,14 @@ function AppReporter() {
       if (nextTimeout < 1000) {
         throw new Error();
       }
+      if (
+        webSocketConnectedRef.current ||
+        webSocketConnectingRef.current ||
+        document.visibilityState === "hidden"
+      ) {
+        return null;
+      }
+
       let actualNextTimeout = nextTimeout;
       webSocketConnectingRef.current = true;
       setConnecting(true);
@@ -92,7 +100,7 @@ function AppReporter() {
           setConnectOpen(true);
         } else if (document.visibilityState === "visible") {
           timeoutRef.current = setTimeout(() => {
-            inner(actualNextTimeout * 2);
+            inner(Math.min(16000, actualNextTimeout * 2));
           }, actualNextTimeout);
         }
       });
@@ -175,9 +183,11 @@ function AppReporter() {
     const password = getPassword();
     if (password) {
       const newWebSocket = startWebSocket(password);
-      return () => {
-        newWebSocket.close();
-      };
+      if (newWebSocket) {
+        return () => {
+          newWebSocket.close();
+        };
+      }
     }
     return () => {};
   }, [startWebSocket]);

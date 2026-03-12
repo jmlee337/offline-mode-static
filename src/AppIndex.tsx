@@ -22,20 +22,32 @@ function AppIndex() {
     useState(false);
 
   const [connectOpen, setConnectOpen] = useState(false);
-  const [connecting, setConnecting] = useState(Boolean(true));
+  const [connecting, setConnecting] = useState(false);
 
   const [tournament, setTournament] = useState<Tournament>();
   const [idToSet, setIdToSet] = useState<Map<number, Set>>();
 
   const webSocketOpenRef = useRef(false);
-  const webSocketConnectingRef = useRef(true);
+  const webSocketConnectingRef = useRef(false);
   const timeoutRef = useRef<number>(undefined);
 
   const startWebSocket = useCallback(() => {
+    console.log("startWebSocket");
+    console.log(webSocketOpenRef.current);
+    console.log(webSocketConnectingRef.current);
+    console.log(document.visibilityState);
     const inner = (nextTimeout: number = 1000) => {
       if (nextTimeout < 1000) {
         throw new Error();
       }
+      if (
+        webSocketOpenRef.current ||
+        webSocketConnectingRef.current ||
+        document.visibilityState === "hidden"
+      ) {
+        return null;
+      }
+
       let actualNextTimeout = nextTimeout;
       webSocketConnectingRef.current = true;
       setConnecting(true);
@@ -76,7 +88,7 @@ function AppIndex() {
         setConnecting(false);
         if (document.visibilityState === "visible") {
           timeoutRef.current = setTimeout(() => {
-            inner(actualNextTimeout * 2);
+            inner(Math.min(16000, actualNextTimeout * 2));
           }, actualNextTimeout);
         }
       });
@@ -109,9 +121,12 @@ function AppIndex() {
 
   useEffect(() => {
     const webSocket = startWebSocket();
-    return () => {
-      webSocket.close();
-    };
+    if (webSocket) {
+      return () => {
+        webSocket.close();
+      };
+    }
+    return () => {};
   }, [startWebSocket]);
 
   useEffect(() => {
