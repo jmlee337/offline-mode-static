@@ -1,4 +1,3 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "@fontsource/roboto/300.css";
@@ -7,8 +6,4 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import AppAdmin from "./AppAdmin";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <AppAdmin />
-  </StrictMode>
-);
+createRoot(document.getElementById("root")!).render(<AppAdmin />);

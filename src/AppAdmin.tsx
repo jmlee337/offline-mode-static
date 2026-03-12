@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  StrictMode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type ReportGame,
   type Request,
@@ -48,109 +55,124 @@ function AppAdmin() {
   const webSocketRef = useRef<WebSocket | null>(null);
   const webSocketConnectedRef = useRef(false);
   const webSocketConnectingRef = useRef(Boolean(getPassword()));
+  const timeoutRef = useRef<number>(undefined);
 
   const startWebSocket = useCallback((password: string) => {
-    const newWebSocket = new WebSocket(
-      `ws://${location.hostname}`,
-      "admin-protocol"
-    );
-    const openListener = () => {
-      newWebSocket.removeEventListener("error", errorListener);
-      setWebSocketFailedToConnect(false);
-    };
-    const errorListener = () => {
-      newWebSocket.removeEventListener("open", openListener);
-      setWebSocketFailedToConnect(true);
-      setConnectOpen(true);
-    };
-    newWebSocket.addEventListener("open", openListener);
-    newWebSocket.addEventListener("error", errorListener);
-
-    newWebSocket.addEventListener("close", (ev) => {
-      webSocketRef.current = null;
-      webSocketConnectedRef.current = false;
-      webSocketConnectingRef.current = false;
-      setWebSocketConnected(false);
-      setConnecting(false);
-      setConnectOpen(true);
-      if (ev.code === UNAUTH_CODE) {
-        setWebSocketUnauth(true);
+    const inner = (nextTimeout: number = 1000) => {
+      if (nextTimeout < 1000) {
+        throw new Error();
       }
-    });
-    newWebSocket.addEventListener("message", async (ev) => {
-      try {
-        const message = JSON.parse(ev.data);
-        if (message.op === "auth-hello") {
-          if (
-            typeof message.challenge === "string" &&
-            typeof message.salt === "string"
-          ) {
-            const secretSha256 = new Sha256();
-            secretSha256.update(password);
-            secretSha256.update(message.salt);
-            const secret = base64url.stringify(await secretSha256.digest(), {
-              pad: false,
-            });
+      let actualNextTimeout = nextTimeout;
+      webSocketConnectingRef.current = true;
+      setConnecting(true);
 
-            const authenticationSha256 = new Sha256();
-            authenticationSha256.update(secret);
-            authenticationSha256.update(message.challenge);
-            const authentication = base64url.stringify(
-              await authenticationSha256.digest(),
-              { pad: false }
-            );
+      const newWebSocket = new WebSocket(
+        `ws://${location.hostname}`,
+        "admin-protocol"
+      );
+      const openListener = () => {
+        newWebSocket.removeEventListener("error", errorListener);
+        setWebSocketFailedToConnect(false);
+      };
+      const errorListener = () => {
+        newWebSocket.removeEventListener("open", openListener);
+        setWebSocketFailedToConnect(true);
+      };
+      newWebSocket.addEventListener("open", openListener);
+      newWebSocket.addEventListener("error", errorListener);
+
+      newWebSocket.addEventListener("close", (ev) => {
+        webSocketRef.current = null;
+        webSocketConnectedRef.current = false;
+        webSocketConnectingRef.current = false;
+        setWebSocketConnected(false);
+        setConnecting(false);
+        if (ev.code === UNAUTH_CODE) {
+          setWebSocketUnauth(true);
+          setConnectOpen(true);
+        } else if (document.visibilityState === "visible") {
+          timeoutRef.current = setTimeout(() => {
+            inner(actualNextTimeout * 2);
+          }, actualNextTimeout);
+        }
+      });
+      newWebSocket.addEventListener("message", async (ev) => {
+        try {
+          const message = JSON.parse(ev.data);
+          if (message.op === "auth-hello") {
+            if (
+              typeof message.challenge === "string" &&
+              typeof message.salt === "string"
+            ) {
+              const secretSha256 = new Sha256();
+              secretSha256.update(password);
+              secretSha256.update(message.salt);
+              const secret = base64url.stringify(await secretSha256.digest(), {
+                pad: false,
+              });
+
+              const authenticationSha256 = new Sha256();
+              authenticationSha256.update(secret);
+              authenticationSha256.update(message.challenge);
+              const authentication = base64url.stringify(
+                await authenticationSha256.digest(),
+                { pad: false }
+              );
+              newWebSocket.send(
+                JSON.stringify({
+                  op: "auth-identify",
+                  authentication,
+                })
+              );
+            }
+          } else if (message.op === "auth-success-event") {
+            const num = nextNumRef.current;
+            nextNumRef.current = num + 1;
             newWebSocket.send(
               JSON.stringify({
-                op: "auth-identify",
-                authentication,
+                op: "client-id-request",
+                num,
+                computerName: "",
+                clientName: "Offline Mode",
               })
             );
-          }
-        } else if (message.op === "auth-success-event") {
-          const num = nextNumRef.current;
-          nextNumRef.current = num + 1;
-          newWebSocket.send(
-            JSON.stringify({
-              op: "client-id-request",
-              num,
-              computerName: "",
-              clientName: "Offline Mode",
-            })
-          );
-          webSocketRef.current = newWebSocket;
-          webSocketConnectedRef.current = true;
-          webSocketConnectingRef.current = false;
-          setWebSocketConnected(true);
-          setWebSocketUnauth(false);
-          setConnecting(false);
-          setConnectOpen(false);
-        } else if (
-          message.op === "tournament-update-event" &&
-          message.tournament
-        ) {
-          const newTournament = message.tournament as Tournament;
-          const newIdToSet = new Map<number, Set>();
-          newTournament.events.forEach((event) => {
-            event.phases.forEach((phase) => {
-              phase.pools.forEach((pool) => {
-                pool.sets.forEach((set) => {
-                  newIdToSet.set(set.id, set);
+            webSocketRef.current = newWebSocket;
+            webSocketConnectedRef.current = true;
+            webSocketConnectingRef.current = false;
+            actualNextTimeout = 1000;
+            setWebSocketConnected(true);
+            setWebSocketUnauth(false);
+            setConnecting(false);
+            setConnectOpen(false);
+          } else if (
+            message.op === "tournament-update-event" &&
+            message.tournament
+          ) {
+            const newTournament = message.tournament as Tournament;
+            const newIdToSet = new Map<number, Set>();
+            newTournament.events.forEach((event) => {
+              event.phases.forEach((phase) => {
+                phase.pools.forEach((pool) => {
+                  pool.sets.forEach((set) => {
+                    newIdToSet.set(set.id, set);
+                  });
                 });
               });
             });
-          });
-          setTournament(newTournament);
-          setIdToSet(newIdToSet);
+            setTournament(newTournament);
+            setIdToSet(newIdToSet);
+          }
+        } catch {
+          // just catch
         }
-      } catch {
-        // just catch
-      }
-    });
-    return newWebSocket;
+      });
+      return newWebSocket;
+    };
+    return inner();
   }, []);
 
   useEffect(() => {
-    const password = sessionStorage?.getItem(PASSWORD_KEY);
+    const password = getPassword();
     if (password) {
       const newWebSocket = startWebSocket(password);
       return () => {
@@ -167,12 +189,12 @@ function AppAdmin() {
         !webSocketConnectedRef.current &&
         !webSocketConnectingRef.current
       ) {
-        const password = sessionStorage?.getItem(PASSWORD_KEY);
+        const password = getPassword();
         if (password) {
-          webSocketConnectingRef.current = true;
-          setConnecting(true);
           startWebSocket(password);
         }
+      } else if (document.visibilityState === "hidden") {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, [startWebSocket]);
@@ -302,7 +324,7 @@ function AppAdmin() {
   );
 
   return (
-    <>
+    <StrictMode>
       <AppBar
         position="fixed"
         sx={{
@@ -411,7 +433,7 @@ function AppAdmin() {
           </DialogActions>
         </form>
       </Dialog>
-    </>
+    </StrictMode>
   );
 }
 

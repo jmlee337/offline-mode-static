@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { type Set, type Tournament } from "./types";
 import {
   Alert,
@@ -29,67 +29,82 @@ function AppIndex() {
 
   const webSocketOpenRef = useRef(false);
   const webSocketConnectingRef = useRef(true);
+  const timeoutRef = useRef<number>(undefined);
 
   const startWebSocket = useCallback(() => {
-    const webSocket = new WebSocket(
-      `ws://${location.hostname}`,
-      "bracket-protocol"
-    );
-    const openListener = () => {
-      webSocket.removeEventListener("error", errorListener);
-      webSocket.send(
-        JSON.stringify({
-          op: "client-id-request",
-          num: 1,
-          computerName: "",
-          clientName: "Offline Mode",
-        })
-      );
-      webSocketOpenRef.current = true;
-      webSocketConnectingRef.current = false;
-      setWebSocketOpen(true);
-      setWebSocketFailedToConnect(false);
-      setConnecting(false);
-      setConnectOpen(false);
-    };
-    const errorListener = () => {
-      webSocket.removeEventListener("open", openListener);
-      setWebSocketFailedToConnect(true);
-      setConnectOpen(true);
-    };
-    webSocket.addEventListener("open", openListener);
-    webSocket.addEventListener("error", errorListener);
+    const inner = (nextTimeout: number = 1000) => {
+      if (nextTimeout < 1000) {
+        throw new Error();
+      }
+      let actualNextTimeout = nextTimeout;
+      webSocketConnectingRef.current = true;
+      setConnecting(true);
 
-    webSocket.addEventListener("close", () => {
-      webSocketOpenRef.current = false;
-      webSocketConnectingRef.current = false;
-      setWebSocketOpen(false);
-      setConnecting(false);
-      setConnectOpen(true);
-    });
-    webSocket.addEventListener("message", (ev) => {
-      try {
-        const message = JSON.parse(ev.data);
-        if (message.op === "tournament-update-event" && message.tournament) {
-          const newTournament = message.tournament as Tournament;
-          const newIdToSet = new Map<number, Set>();
-          newTournament.events.forEach((event) => {
-            event.phases.forEach((phase) => {
-              phase.pools.forEach((pool) => {
-                pool.sets.forEach((set) => {
-                  newIdToSet.set(set.id, set);
+      const webSocket = new WebSocket(
+        `ws://${location.hostname}`,
+        "bracket-protocol"
+      );
+      const openListener = () => {
+        webSocket.removeEventListener("error", errorListener);
+        webSocket.send(
+          JSON.stringify({
+            op: "client-id-request",
+            num: 1,
+            computerName: "",
+            clientName: "Offline Mode",
+          })
+        );
+        webSocketOpenRef.current = true;
+        webSocketConnectingRef.current = false;
+        actualNextTimeout = 1000;
+        setWebSocketOpen(true);
+        setWebSocketFailedToConnect(false);
+        setConnecting(false);
+        setConnectOpen(false);
+      };
+      const errorListener = () => {
+        webSocket.removeEventListener("open", openListener);
+        setWebSocketFailedToConnect(true);
+      };
+      webSocket.addEventListener("open", openListener);
+      webSocket.addEventListener("error", errorListener);
+
+      webSocket.addEventListener("close", () => {
+        webSocketOpenRef.current = false;
+        webSocketConnectingRef.current = false;
+        setWebSocketOpen(false);
+        setConnecting(false);
+        if (document.visibilityState === "visible") {
+          timeoutRef.current = setTimeout(() => {
+            inner(actualNextTimeout * 2);
+          }, actualNextTimeout);
+        }
+      });
+      webSocket.addEventListener("message", (ev) => {
+        try {
+          const message = JSON.parse(ev.data);
+          if (message.op === "tournament-update-event" && message.tournament) {
+            const newTournament = message.tournament as Tournament;
+            const newIdToSet = new Map<number, Set>();
+            newTournament.events.forEach((event) => {
+              event.phases.forEach((phase) => {
+                phase.pools.forEach((pool) => {
+                  pool.sets.forEach((set) => {
+                    newIdToSet.set(set.id, set);
+                  });
                 });
               });
             });
-          });
-          setTournament(newTournament);
-          setIdToSet(newIdToSet);
+            setTournament(newTournament);
+            setIdToSet(newIdToSet);
+          }
+        } catch {
+          // just catch
         }
-      } catch {
-        // just catch
-      }
-    });
-    return webSocket;
+      });
+      return webSocket;
+    };
+    return inner();
   }, []);
 
   useEffect(() => {
@@ -107,12 +122,14 @@ function AppIndex() {
         !webSocketConnectingRef.current
       ) {
         startWebSocket();
+      } else if (document.visibilityState === "hidden") {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, [startWebSocket]);
 
   return (
-    <>
+    <StrictMode>
       <AppBar
         position="fixed"
         sx={{
@@ -175,8 +192,6 @@ function AppIndex() {
           <Button
             disabled={connecting || webSocketOpen}
             onClick={() => {
-              webSocketConnectingRef.current = true;
-              setConnecting(true);
               startWebSocket();
             }}
             variant="contained"
@@ -185,7 +200,7 @@ function AppIndex() {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </StrictMode>
   );
 }
 

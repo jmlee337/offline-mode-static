@@ -1,4 +1,3 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "@fontsource/roboto/300.css";
@@ -7,8 +6,4 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import AppIndex from "./AppIndex";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <AppIndex />
-  </StrictMode>
-);
+createRoot(document.getElementById("root")!).render(<AppIndex />);
