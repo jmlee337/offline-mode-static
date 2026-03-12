@@ -65,15 +65,16 @@ function AppAdmin() {
     };
     newWebSocket.addEventListener("open", openListener);
     newWebSocket.addEventListener("error", errorListener);
+
     newWebSocket.addEventListener("close", (ev) => {
       webSocketRef.current = null;
       webSocketConnectedRef.current = false;
       webSocketConnectingRef.current = false;
       setWebSocketConnected(false);
       setConnecting(false);
+      setConnectOpen(true);
       if (ev.code === UNAUTH_CODE) {
         setWebSocketUnauth(true);
-        setConnectOpen(true);
       }
     });
     newWebSocket.addEventListener("message", async (ev) => {

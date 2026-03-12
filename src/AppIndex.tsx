@@ -59,11 +59,13 @@ function AppIndex() {
     };
     webSocket.addEventListener("open", openListener);
     webSocket.addEventListener("error", errorListener);
+
     webSocket.addEventListener("close", () => {
       webSocketOpenRef.current = false;
       webSocketConnectingRef.current = false;
-      setConnecting(false);
       setWebSocketOpen(false);
+      setConnecting(false);
+      setConnectOpen(true);
     });
     webSocket.addEventListener("message", (ev) => {
       try {
