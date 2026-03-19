@@ -407,8 +407,6 @@ function AppAdmin() {
             ev.stopPropagation();
             if (password) {
               sessionStorage?.setItem(PASSWORD_KEY, password);
-              webSocketConnectingRef.current = true;
-              setConnecting(true);
               setWebSocketUnauth(false);
               startWebSocket(password);
             }
