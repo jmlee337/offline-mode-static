@@ -1034,7 +1034,9 @@ function SelectedSetDialog({
                   disabled={
                     calling ||
                     selectedSet.state === 3 ||
-                    selectedSet.state === 6
+                    selectedSet.state === 6 || 
+                    !selectedSet.entrant1Id || 
+                    !selectedSet.entrant2Id
                   }
                   onClick={async () => {
                     try {
@@ -1062,7 +1064,9 @@ function SelectedSetDialog({
                   disabled={
                     starting ||
                     selectedSet.state === 2 ||
-                    selectedSet.state === 3
+                    selectedSet.state === 3 || 
+                    !selectedSet.entrant1Id || 
+                    !selectedSet.entrant2Id
                   }
                   onClick={async () => {
                     try {
