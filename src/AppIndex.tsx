@@ -180,7 +180,7 @@ function AppIndex() {
           </Stack>
         </Toolbar>
       </AppBar>
-      <Stack marginTop="56px" marginBottom="8px">
+      <Stack marginTop="56px" marginBottom="16px">
         {tournament && idToSet && (
           <TournamentEl tournament={tournament} idToSet={idToSet} />
         )}
