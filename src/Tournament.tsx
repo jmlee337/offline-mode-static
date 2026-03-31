@@ -234,12 +234,19 @@ function SetEl({ set }: { set: Set }) {
 
 function PoolEl({
   pool,
+  showCompleted,
   openSet,
 }: {
   pool: Pool;
+  showCompleted: boolean;
   openSet: ((newSelectedSetId: number) => void) | null;
 }) {
   const [open, setOpen] = useState(false);
+  const setsToShow = useMemo(
+    () =>
+      showCompleted ? pool.sets : pool.sets.filter((set) => set.state !== 3),
+    [pool.sets, showCompleted]
+  );
   return (
     <>
       <ListItemButton
@@ -258,39 +265,41 @@ function PoolEl({
         </ListItemText>
       </ListItemButton>
       <Collapse in={open} style={{ width: "100%" }} unmountOnExit>
-        <List
-          disablePadding
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "8px",
-            margin: "8px",
-          }}
-        >
-          {pool.sets.map((set) => (
-            <ListItem
-              disablePadding
-              key={set.id}
-              style={{
-                width:
-                  "calc((100% - ((var(--set-columns) - 1) * 8px)) / var(--set-columns))",
-              }}
-            >
-              {openSet ? (
-                <ListItemButton
-                  onClick={() => {
-                    openSet(set.id);
-                  }}
-                  style={{ padding: 0 }}
-                >
+        {setsToShow.length > 0 && (
+          <List
+            disablePadding
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+              margin: "8px",
+            }}
+          >
+            {setsToShow.map((set) => (
+              <ListItem
+                disablePadding
+                key={set.id}
+                style={{
+                  width:
+                    "calc((100% - ((var(--set-columns) - 1) * 8px)) / var(--set-columns))",
+                }}
+              >
+                {openSet ? (
+                  <ListItemButton
+                    onClick={() => {
+                      openSet(set.id);
+                    }}
+                    style={{ padding: 0 }}
+                  >
+                    <SetEl set={set} />
+                  </ListItemButton>
+                ) : (
                   <SetEl set={set} />
-                </ListItemButton>
-              ) : (
-                <SetEl set={set} />
-              )}
-            </ListItem>
-          ))}
-        </List>
+                )}
+              </ListItem>
+            ))}
+          </List>
+        )}
       </Collapse>
     </>
   );
@@ -298,9 +307,11 @@ function PoolEl({
 
 function PhaseEl({
   phase,
+  showCompleted,
   openSet,
 }: {
   phase: Phase;
+  showCompleted: boolean;
   openSet: ((newSelectedSetId: number) => void) | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -329,7 +340,11 @@ function PhaseEl({
               key={pool.id}
               style={{ flexDirection: "column", alignItems: "start" }}
             >
-              <PoolEl pool={pool} openSet={openSet} />
+              <PoolEl
+                pool={pool}
+                showCompleted={showCompleted}
+                openSet={openSet}
+              />
             </ListItem>
           ))}
         </List>
@@ -340,9 +355,11 @@ function PhaseEl({
 
 function EventEl({
   event,
+  showCompleted,
   openSet,
 }: {
   event: Event;
+  showCompleted: boolean;
   openSet: ((newSelectedSetId: number) => void) | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -371,7 +388,11 @@ function EventEl({
               key={phase.id}
               style={{ flexDirection: "column", alignItems: "start" }}
             >
-              <PhaseEl phase={phase} openSet={openSet} />
+              <PhaseEl
+                phase={phase}
+                showCompleted={showCompleted}
+                openSet={openSet}
+              />
             </ListItem>
           ))}
         </List>
@@ -1034,8 +1055,8 @@ function SelectedSetDialog({
                   disabled={
                     calling ||
                     selectedSet.state === 3 ||
-                    selectedSet.state === 6 || 
-                    !selectedSet.entrant1Id || 
+                    selectedSet.state === 6 ||
+                    !selectedSet.entrant1Id ||
                     !selectedSet.entrant2Id
                   }
                   onClick={async () => {
@@ -1064,8 +1085,8 @@ function SelectedSetDialog({
                   disabled={
                     starting ||
                     selectedSet.state === 2 ||
-                    selectedSet.state === 3 || 
-                    !selectedSet.entrant1Id || 
+                    selectedSet.state === 3 ||
+                    !selectedSet.entrant1Id ||
                     !selectedSet.entrant2Id
                   }
                   onClick={async () => {
@@ -1200,6 +1221,7 @@ function SelectedSetDialog({
 export default function TournamentEl({
   tournament,
   idToSet,
+  showCompleted,
   resetSet,
   callSet,
   startSet,
@@ -1209,6 +1231,7 @@ export default function TournamentEl({
 }: {
   tournament: Tournament;
   idToSet: Map<number, Set>;
+  showCompleted: boolean;
   resetSet?: (id: number) => Promise<void>;
   callSet?: (id: number) => Promise<void>;
   startSet?: (id: number) => Promise<void>;
@@ -1278,7 +1301,11 @@ export default function TournamentEl({
             key={event.id}
             style={{ flexDirection: "column", alignItems: "start" }}
           >
-            <EventEl event={event} openSet={openSet} />
+            <EventEl
+              event={event}
+              showCompleted={showCompleted}
+              openSet={openSet}
+            />
           </ListItem>
         ))}
       </List>

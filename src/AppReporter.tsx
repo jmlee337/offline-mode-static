@@ -26,7 +26,12 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { LeakAdd, LeakRemove } from "@mui/icons-material";
+import {
+  LeakAdd,
+  LeakRemove,
+  Visibility,
+  VisibilityOff,
+} from "@mui/icons-material";
 import TournamentEl from "./Tournament";
 import { Sha256 } from "@aws-crypto/sha256-browser";
 import { base64url } from "rfc4648";
@@ -37,6 +42,7 @@ function getPassword() {
 }
 
 function AppReporter() {
+  const [showCompleted, setShowCompleted] = useState(true);
   const [webSocketConnected, setWebSocketConnected] = useState(false);
   const [webSocketFailedToConnect, setWebSocketFailedToConnect] =
     useState(false);
@@ -359,14 +365,23 @@ function AppReporter() {
             >
               Reporter - {tournament ? tournament.name : "Offline Mode"}
             </Typography>
-            <IconButton
-              color={webSocketConnected ? "primary" : "error"}
-              onClick={() => {
-                setConnectOpen(true);
-              }}
-            >
-              {webSocketConnected ? <LeakAdd /> : <LeakRemove />}
-            </IconButton>
+            <Stack direction="row">
+              <IconButton
+                onClick={() => {
+                  setShowCompleted((oldShowCompleted) => !oldShowCompleted);
+                }}
+              >
+                {showCompleted ? <Visibility /> : <VisibilityOff />}
+              </IconButton>
+              <IconButton
+                color={webSocketConnected ? "primary" : "error"}
+                onClick={() => {
+                  setConnectOpen(true);
+                }}
+              >
+                {webSocketConnected ? <LeakAdd /> : <LeakRemove />}
+              </IconButton>
+            </Stack>
           </Stack>
         </Toolbar>
       </AppBar>
@@ -375,6 +390,7 @@ function AppReporter() {
           <TournamentEl
             tournament={tournament}
             idToSet={idToSet}
+            showCompleted={showCompleted}
             resetSet={webSocketConnected ? resetSet : undefined}
             callSet={webSocketConnected ? callSet : undefined}
             startSet={webSocketConnected ? startSet : undefined}

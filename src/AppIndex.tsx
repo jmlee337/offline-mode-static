@@ -13,10 +13,16 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { LeakAdd, LeakRemove } from "@mui/icons-material";
+import {
+  LeakAdd,
+  LeakRemove,
+  Visibility,
+  VisibilityOff,
+} from "@mui/icons-material";
 import TournamentEl from "./Tournament";
 
 function AppIndex() {
+  const [showCompleted, setShowCompleted] = useState(true);
   const [webSocketOpen, setWebSocketOpen] = useState(false);
   const [webSocketFailedToConnect, setWebSocketFailedToConnect] =
     useState(false);
@@ -169,20 +175,33 @@ function AppIndex() {
             >
               {tournament ? tournament.name : "Offline Mode"}
             </Typography>
-            <IconButton
-              color={webSocketOpen ? "primary" : "error"}
-              onClick={() => {
-                setConnectOpen(true);
-              }}
-            >
-              {webSocketOpen ? <LeakAdd /> : <LeakRemove />}
-            </IconButton>
+            <Stack direction="row">
+              <IconButton
+                onClick={() => {
+                  setShowCompleted((oldShowCompleted) => !oldShowCompleted);
+                }}
+              >
+                {showCompleted ? <Visibility /> : <VisibilityOff />}
+              </IconButton>
+              <IconButton
+                color={webSocketOpen ? "primary" : "error"}
+                onClick={() => {
+                  setConnectOpen(true);
+                }}
+              >
+                {webSocketOpen ? <LeakAdd /> : <LeakRemove />}
+              </IconButton>
+            </Stack>
           </Stack>
         </Toolbar>
       </AppBar>
       <Stack marginTop="56px" marginBottom="16px">
         {tournament && idToSet && (
-          <TournamentEl tournament={tournament} idToSet={idToSet} />
+          <TournamentEl
+            tournament={tournament}
+            idToSet={idToSet}
+            showCompleted={showCompleted}
+          />
         )}
       </Stack>
       <Dialog
